@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/fira_code.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        :root {
+            --rosewater: #f5e0dc;
+            --flamingo: #f2cdcd;
+            --pink: #f5c2e7;
+            --mauve: #cba6f7;
+            --red: #f38ba8;
+            --maroon: #eba0ac;
+            --peach: #fab387;
+            --yellow: #f9e2af;
+            --green: #a6e3a1;
+            --teal: #94e2d5;
+            --sky: #89dceb;
+            --sapphire: #74c7ec;
+            --blue: #89b4fa;
+            --lavender: #b4befe;
+            --text: #cdd6f4;
+            --subtext1: #bac2de;
+            --subtext0: #a6adc8;
+            --overlay2: #9399b2;
+            --overlay1: #7f849c;
+            --overlay0: #6c7086;
+            --surface2: #585b70;
+            --surface1: #45475a;
+            --surface0: #313244;
+            --base: #1e1e2e;
+            --mantle: #181825;
+            --crust: #11111b;
+        }
+        body {
+            font-family: 'Fira Code', monospace;
+            background-color: var(--base);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--lavender);
+        }
+        #file-input {
+            display: none;
+        }
+        .button {
+            background-color: var(--mauve);
+            color: var(--base);
+            padding: 12px;
+            margin-top: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-family: 'Fira Code', monospace;
+            font-weight: 500;
+        }
+        .button:hover {
+            background-color: var(--pink);
+        }
+        #data-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .data-item {
+            background-color: var(--surface0);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        .data-info {
+            flex-grow: 1;
+        }
+        .qr-code {
+            margin-left: 1rem;
+        }
+        .qr-code canvas {
+            width: 128px;
+            height: 128px;
+        }
+        #theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+        .material-icons {
+            font-size: 18px;
+            vertical-align: middle;
+        }
+        a {
+            color: var(--sky);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QR Code Generator</h1>
+        <label for="file-input" class="button"><i class="material-icons">upload_file</i> Choose CSV File</label>
+        <input type="file" id="file-input" accept=".csv">
+        <div id="export-options" style="display: none; margin-top: 1rem;">
+            <button id="export-all" class="button"><i class="material-icons">picture_as_pdf</i> Export All</button>
+            <button id="export-grouped" class="button"><i class="material-icons">group_work</i> Export By Location</button>
+            <button id="export-individual" class="button"><i class="material-icons">person</i> Export Individual</button>
+        </div>
+        <ul id="data-list"></ul>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const dataList = document.getElementById('data-list');
+        const exportAllBtn = document.getElementById('export-all');
+        const exportGroupedBtn = document.getElementById('export-grouped');
+        const exportIndividualBtn = document.getElementById('export-individual');
+        
+        let data = [];
+
+        fileInput.addEventListener('change', handleFileUpload);
+        exportAllBtn.addEventListener('click', exportAll);
+        // exportGroupedBtn.addEventListener('click', exportGrouped);
+        // exportIndividualBtn.addEventListener('click', exportIndividual);
+
+        function handleFileUpload(event) {
+            Papa.parse(event.target.files[0], {
+                complete: function(results) {
+                    const raw = results.data.slice(1);
+                    data = raw.map(row => ({
+                        name: row[0],
+                        phone: row[1],
+                        location: row[2],
+                        description: row[3],
+                        url: row[4]
+                    }));
+                    displayData();
+                    document.getElementById('export-options').style.display = 'block';
+                },
+                encoding: 'utf-8'
+            });
+        }
+        
+        function displayData() {
+            dataList.innerHTML = data.map((item, index) => `
+                <li class="data-item">
+                    <div class="data-info">
+                        <h3>${item.name}</h3>
+                        <p>${item.description}</p>
+                        <p><i class="material-icons">phone</i> ${item.phone}</p>
+                        <p><i class="material-icons">location_on</i> ${item.location}</p>
+                        <p><i class="material-icons">link</i> <a href="${item.url}" target="_blank">${item.url}</a></p>
+                    </div>
+                    <div class="qr-code" id="qr-${index}"></div>
+                </li>
+            `).join('');
+            
+            data.forEach((item, index) => {
+                new QRCode(document.getElementById(`qr-${index}`), {
+                    text: item.url,
+                    width: 128,
+                    height: 128,
+                    colorDark : "#1e1e2e",
+                    colorLight : "#ffffff"
+                });
+            });
+        }
+
+        async function exportAll() {
+            const element = document.createElement('div');
+            for (const item of data) {
+                element.innerHTML += await generateHTML(item);
+            }
+            
+            const opt = {
+                filename: 'qr_codes.pdf',
+                image: { type: 'jpeg', quality: 1 },
+                html2canvas:  { scale: 2 }
+            };
+            
+            html2pdf().set(opt).from(element).save();
+        }
+
+        function exportGrouped() {
+            const groupedData = parsedData.reduce((acc, item) => {
+                (acc[item.location] = acc[item.location] || []).push(item);
+                return acc;
+            }, {});
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            let isFirstPage = true;
+
+            for (const [location, items] of Object.entries(groupedData)) {
+                if (!isFirstPage) doc.addPage();
+                isFirstPage = false;
+
+                doc.setFontSize(20);
+                doc.text(location, 105, 20, { align: 'center' });
+                
+                generatePDFContent(doc, items, 30);
+            }
+
+            doc.save('grouped_qr_codes.pdf');
+        }
+
+        function exportIndividual() {
+            data.forEach(item => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                generatePDFContent(doc, [item]);
+                doc.save(`qr_code_${item.name.replace(/\s+/g, '_')}.pdf`);
+            });
+        }
+
+        async function generateHTML(item) {
+            const qrDataUrl = await generateQRCode(item.url);
+            return `
+                <div style="width: 210mm; height: 297mm; padding: 20mm; box-sizing: border-box; font-family: 'Arial', sans-serif; color: black; direction: rtl; text-align: right;">
+                    <h1 style="font-size: 24px; text-align:center; margin-bottom: 10mm; color: black;">${item.name}</h1>
+                    <p style="font-size: 18px; text-align: center; margin-bottom: 20mm;">${item.phone}</p>
+                    <div style="text-align: center; margin-bottom: 20mm;">
+                        <img src="${qrDataUrl}" style="width: 80mm; height: 80mm;">
+                    </div>
+                    <p style="font-size: 14px; text-align: center; margin-bottom: 10mm;">${item.location}</p>
+                    <p style="font-size: 14px; text-align: center;">${item.description}</p>
+                </div>
+            `;
+        }
+
+
+        function generateQRCode(url) {
+            return new Promise((resolve) => {
+                const tempDiv = document.createElement('div');
+                new QRCode(tempDiv, {
+                    text: url,
+                    width: 1024,
+                    height: 1024,
+                    colorDark: "#1e1e2e",
+                    colorLight: "#ffffff"
+                });
+                setTimeout(() => {
+                    const qrDataUrl = tempDiv.querySelector('canvas').toDataURL('image/png');
+                    resolve(qrDataUrl);
+                }, 100);
+            });
+        }
+
+    </script>
+</body>
+</html>
