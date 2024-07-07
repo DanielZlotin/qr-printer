@@ -8,7 +8,6 @@
     <link href="https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/fira_code.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         :root {
@@ -120,7 +119,7 @@
         <input type="file" id="file-input" accept=".csv">
         <div id="export-options" style="display: none; margin-top: 1rem;">
             <button id="export-all" class="button"><i class="material-icons">picture_as_pdf</i> Export All</button>
-            <button id="export-grouped" class="button"><i class="material-icons">group_work</i> Export By Location</button>
+            <button id="export-grouped" class="button"><i class="material-icons">location_on</i> Export By Location</button>
             <button id="export-individual" class="button"><i class="material-icons">person</i> Export Individual</button>
         </div>
         <ul id="data-list"></ul>
@@ -144,13 +143,17 @@
             Papa.parse(event.target.files[0], {
                 complete: function(results) {
                     const raw = results.data.slice(1);
-                    data = raw.map(row => ({
-                        name: row[0],
-                        phone: row[1],
-                        location: row[2],
-                        description: row[3],
-                        url: row[4]
-                    }));
+                    data = raw.map(row => {
+                        const urlMatch = row[4].match(/href="([^"]*)"/);
+                        const url = urlMatch ? urlMatch[1] : row[4];
+                        return ({
+                            name: row[0],
+                            phone: row[1],
+                            location: row[2],
+                            description: row[3],
+                            url
+                        })
+                    });
                     displayData();
                     document.getElementById('export-options').style.display = 'block';
                 },
@@ -185,7 +188,7 @@
 
         async function exportAll() {
             const element = document.createElement('div');
-            for (const item of data) {
+            for (const item of data.slice(0, 5)) {
                 element.innerHTML += await generateHTML(item);
             }
             
@@ -198,49 +201,48 @@
             html2pdf().set(opt).from(element).save();
         }
 
-        function exportGrouped() {
-            const groupedData = parsedData.reduce((acc, item) => {
-                (acc[item.location] = acc[item.location] || []).push(item);
-                return acc;
-            }, {});
+        // function exportGrouped() {
+        //     const groupedData = parsedData.reduce((acc, item) => {
+        //         (acc[item.location] = acc[item.location] || []).push(item);
+        //         return acc;
+        //     }, {});
 
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            let isFirstPage = true;
+        //     const { jsPDF } = window.jspdf;
+        //     const doc = new jsPDF();
+        //     let isFirstPage = true;
 
-            for (const [location, items] of Object.entries(groupedData)) {
-                if (!isFirstPage) doc.addPage();
-                isFirstPage = false;
+        //     for (const [location, items] of Object.entries(groupedData)) {
+        //         if (!isFirstPage) doc.addPage();
+        //         isFirstPage = false;
 
-                doc.setFontSize(20);
-                doc.text(location, 105, 20, { align: 'center' });
+        //         doc.setFontSize(20);
+        //         doc.text(location, 105, 20, { align: 'center' });
                 
-                generatePDFContent(doc, items, 30);
-            }
+        //         generatePDFContent(doc, items, 30);
+        //     }
 
-            doc.save('grouped_qr_codes.pdf');
-        }
+        //     doc.save('grouped_qr_codes.pdf');
+        // }
 
-        function exportIndividual() {
-            data.forEach(item => {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                generatePDFContent(doc, [item]);
-                doc.save(`qr_code_${item.name.replace(/\s+/g, '_')}.pdf`);
-            });
-        }
+        // function exportIndividual() {
+        //     data.forEach(item => {
+        //         const { jsPDF } = window.jspdf;
+        //         const doc = new jsPDF();
+        //         generatePDFContent(doc, [item]);
+        //         doc.save(`qr_code_${item.name.replace(/\s+/g, '_')}.pdf`);
+        //     });
+        // }
 
         async function generateHTML(item) {
             const qrDataUrl = await generateQRCode(item.url);
             return `
-                <div style="width: 210mm; height: 297mm; padding: 20mm; box-sizing: border-box; font-family: 'Arial', sans-serif; color: black; direction: rtl; text-align: right;">
-                    <h1 style="font-size: 24px; text-align:center; margin-bottom: 10mm; color: black;">${item.name}</h1>
-                    <p style="font-size: 18px; text-align: center; margin-bottom: 20mm;">${item.phone}</p>
+                <div style="width: 210mm; height: 297mm; padding: 20mm; box-sizing: border-box; font-family: 'Arial', sans-serif; color: black;">
+                    <h1 style="font-size: 24px; text-align: center; margin-bottom: 10mm; color: black;">${item.name}</h1>
+                    <h1 style="font-size: 24px; text-align: center; margin-bottom: 10mm; color: black;">${item.location}</p>
+                    <h2 style="font-size: 18px; text-align: center; margin-bottom: 20mm; color: black;">${item.phone}</p>
                     <div style="text-align: center; margin-bottom: 20mm;">
                         <img src="${qrDataUrl}" style="width: 80mm; height: 80mm;">
                     </div>
-                    <p style="font-size: 14px; text-align: center; margin-bottom: 10mm;">${item.location}</p>
-                    <p style="font-size: 14px; text-align: center;">${item.description}</p>
                 </div>
             `;
         }
